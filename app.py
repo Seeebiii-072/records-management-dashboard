@@ -14,7 +14,7 @@ import io, sys, os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from scripts.pdf_reader    import read_pdf
+from scripts.pdf_reader    import read_pdf_from_path
 from scripts.ai_extractor  import hybrid_extract
 from scripts.processor     import to_dataframe, get_summary_stats
 from scripts.utils         import build_graph
@@ -102,20 +102,26 @@ st.divider()
 # ── STEP 1: UPLOAD ────────────────────────────────────────────────────────────
 st.subheader("📎 Step 1 — Upload PDF Documents")
 
-uploaded_files = st.file_uploader(
-    "Upload Records Management PDFs",
-    type=["pdf"],
-    accept_multiple_files=True
-)
+# uploaded_files = st.file_uploader(
+#     "Upload Records Management PDFs",
+#     type=["pdf"],
+#     accept_multiple_files=True
+# )
+st.subheader("📎 Step 1 — Loading Fixed Documents")
+all_text = ""
+uploaded_files = [
+    "data/doc.pdf",
+    "data/doc1.pdf"
+]
 
-if uploaded_files:
-    cols = st.columns(min(len(uploaded_files), 4))
-    for i, f in enumerate(uploaded_files):
-        with cols[i % 4]:
-            st.success(f"✅ {f.name}\n{round(f.size/1024/1024,1)} MB")
+for pdf_path in uploaded_files:
+    st.write(f"📄 Loading: {pdf_path}")
+    all_text += read_pdf_from_path(pdf_path)
+st.success("✅ Both PDFs loaded successfully")
 
 st.divider()
 
+# ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
 # ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
 st.subheader("🚀 Step 2 — Run AI Analysis")
 
@@ -123,38 +129,67 @@ if not uploaded_files:
     st.warning("⬆️ Please upload PDF files above to begin.")
 else:
     col_btn, col_info = st.columns([1, 3])
+
     with col_btn:
-        run = st.button("🤖 Run AI Analysis", use_container_width=True, type="primary")
+        run = st.button(
+            "🤖 Run AI Analysis",
+            use_container_width=True,
+            type="primary"
+        )
+
     with col_info:
         if running and model_ok:
-            st.info(f"🤖 Will use Ollama {OLLAMA_MODEL} LLM + NLP fallback")
+            st.info(
+                f"🤖 Will use Ollama {OLLAMA_MODEL} LLM + NLP fallback"
+            )
         else:
-            st.warning("⚠️ Ollama not ready — will use NLP fallback only. Setup Ollama in sidebar for better results.")
+            st.warning(
+                "⚠️ Ollama not ready — will use NLP fallback only. "
+                "Setup Ollama in sidebar for better results."
+            )
 
     if run:
         with st.spinner("📄 Reading PDFs..."):
             all_text = ""
             bar = st.progress(0, text="Reading PDFs...")
-            for i, f in enumerate(uploaded_files):
-                all_text += read_pdf(f)
-                bar.progress((i+1)/len(uploaded_files), text=f"Reading: {f.name}")
 
-        st.success(f"📄 Extracted {len(all_text):,} characters from {len(uploaded_files)} PDF(s)")
+            for i, pdf_path in enumerate(uploaded_files):
+                # fixed PDF path read
+                all_text += read_pdf_from_path(pdf_path)
 
-        with st.spinner("🤖 AI analyzing content — this may take 1-2 minutes..."):
-            data  = hybrid_extract(all_text)
-            df    = to_dataframe(data)
+                # IMPORTANT FIX:
+                # pdf_path is string, so use pdf_path not f.name
+                bar.progress(
+                    (i + 1) / len(uploaded_files),
+                    text=f"Reading: {pdf_path}"
+                )
+
+        st.success(
+            f"📄 Extracted {len(all_text):,} characters "
+            f"from {len(uploaded_files)} PDF(s)"
+        )
+
+        with st.spinner(
+            "🤖 AI analyzing content — this may take 1-2 minutes..."
+        ):
+            data = hybrid_extract(all_text)
+            df = to_dataframe(data)
             stats = get_summary_stats(df)
 
-        st.session_state["df"]       = df
-        st.session_state["stats"]    = stats
+        st.session_state["df"] = df
+        st.session_state["stats"] = stats
         st.session_state["analyzed"] = True
 
         if len(df) == 0:
-            st.error("❌ No data extracted. PDF may be image-based (scanned). Text-based PDFs work best.")
+            st.error(
+                "❌ No data extracted. PDF may be image-based "
+                "(scanned). Text-based PDFs work best."
+            )
         else:
-            st.success(f"✅ Found **{stats['total_departments']} departments** and **{stats['total_tools']} tools**")
-
+            st.success(
+                f"✅ Found **{stats['total_departments']} departments** "
+                f"and **{stats['total_tools']} tools**"
+            )
 st.divider()
 
 # ── RESULTS ───────────────────────────────────────────────────────────────────
