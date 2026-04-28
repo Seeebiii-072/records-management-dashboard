@@ -11,3 +11,17 @@ def build_graph(df):
         G.add_node(tool, type="tool")
         G.add_edge(dept, tool, label=rel)
     return G
+
+def clean_dataframe(df):
+    # 1. Remove empty column names
+    df = df.loc[:, df.columns.notna()]
+    df = df.loc[:, df.columns != ""]
+
+    # 2. Fix duplicate column names
+    df.columns = [f"{col}_{i}" if list(df.columns).count(col) > 1 else col
+                  for i, col in enumerate(df.columns)]
+
+    # 3. Remove fully empty columns
+    df = df.dropna(axis=1, how="all")
+
+    return df

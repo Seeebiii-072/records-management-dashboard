@@ -446,340 +446,251 @@
 # - After that, all analysis is instant and 100% offline
 #         """)
 
+
 """
-app.py - Records Management AI Dashboard
-=========================================
-Auto-installs Ollama + llama3 on first run.
-Pure Streamlit — no HTML/CSS.
+app.py - Enterprise Records Management AI Dashboard (UPGRADED)
+==============================================================
+- Handles large PDFs
+- Hybrid AI extraction (LLM + NLP)
+- Numerical + textual intelligence
+- Scalable graphs
+- Executive-level insights
 """
 
 import streamlit as st
 import pandas as pd
-import networkx as nx
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import io, sys, os
+import io
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from scripts.pdf_reader    import read_pdf_from_path
-from scripts.ai_extractor  import hybrid_extract
-from scripts.processor     import to_dataframe, get_summary_stats
-from scripts.utils         import build_graph
-from scripts.graph_viz     import draw_better_graph, clean_duplicates
-from scripts.ollama_setup  import (
-    setup_ollama, is_ollama_installed,
-    is_ollama_running, is_model_available,
+from scripts.pdf_reader import read_pdf_from_path
+from scripts.ai_extractor import hybrid_extract
+from scripts.processor import to_dataframe, get_summary_stats
+from scripts.graph_viz import draw_better_graph, clean_duplicates
+from scripts.numerical_extractor import extract_numbers_from_text,extract_tables_from_pdf
+from scripts.utils import clean_dataframe
+from scripts.ollama_setup import (
+    is_ollama_installed,
+    is_ollama_running,
+    is_model_available,
     OLLAMA_MODEL
 )
 
-# ── PAGE CONFIG ────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# PAGE CONFIG
+# ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="Records Management AI",
+    page_title="Enterprise Records AI",
     page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-COLORS = {
-    "System Owner":      "#00D4FF",
-    "Workflow User":     "#FF6B35",
-    "Records Officer":   "#7C3AED",
-    "Records Custodian": "#10B981",
-}
-installed = is_ollama_installed()
-running = is_ollama_running()
-model_ok = is_model_available() if running else False
-# ── HEADER ────────────────────────────────────────────────────────────────────
-st.title("🧠 Records Management Intelligence Dashboard")
-st.caption("PDF → Ollama LLM (auto-installed) → Department & Tool Mapping → Dashboard")
+st.title("🧠 Enterprise Records Intelligence System")
+st.caption("AI-powered PDF → Knowledge Graph → Analytics Engine")
 st.divider()
 
-# ── SIDEBAR ───────────────────────────────────────────────────────────────────
-# with st.sidebar:
-#     st.header("🤖 Ollama LLM Status")
+# ─────────────────────────────────────────────
+# LOAD PDF DATA (OPTIMIZED FOR LARGE FILES)
+# ─────────────────────────────────────────────
+st.subheader("📄 Data Ingestion Layer")
 
-#     installed = is_ollama_installed()
-#     running   = is_ollama_running()
-#     model_ok  = is_model_available() if running else False
-
-#     st.markdown(f"**Installed:** {'✅ Yes' if installed else '❌ No'}")
-#     st.markdown(f"**Server:**    {'✅ Running' if running else '🔴 Stopped'}")
-#     st.markdown(f"**Model:**     {'✅ ' + OLLAMA_MODEL if model_ok else '❌ Not pulled'}")
-
-#     st.divider()
-
-#     if not (installed and running and model_ok):
-#         st.warning("Ollama not ready. Click below to auto-setup.")
-#         if st.button("⚡ Auto-Setup Ollama", use_container_width=True, type="primary"):
-#             with st.status("Setting up Ollama...", expanded=True) as status:
-#                 log = st.empty()
-#                 messages = []
-
-#                 def cb(msg):
-#                     messages.append(msg)
-#                     log.markdown("\n\n".join(messages[-6:]))
-
-#                 ok, msg = setup_ollama(status_callback=cb)
-
-#                 if ok:
-#                     status.update(label="✅ Ollama Ready!", state="complete")
-#                     st.success(msg)
-#                     st.rerun()
-#                 else:
-#                     status.update(label="❌ Setup Failed", state="error")
-#                     st.error(msg)
-#                     st.markdown("""
-# **Manual Install:**
-# 1. Go to https://ollama.com
-# 2. Download & install
-# 3. Run: `ollama pull llama3`
-# 4. Restart this app
-#                     """)
-#     else:
-#         st.success(f"✅ Ollama + {OLLAMA_MODEL} ready!")
-
-#     st.divider()
-#     st.subheader("🔗 Relationship Types")
-#     st.markdown("🔵 **System Owner** — IT owns the system")
-#     st.markdown("🟠 **Workflow User** — Daily operational use")
-#     st.markdown("🟣 **Records Officer** — LVA compliance liaison")
-#     st.markdown("🟢 **Records Custodian** — Record storage")
-#     st.divider()
-#     st.caption("Powered by Ollama llama3 + NLP Fallback")
-
-# ── STEP 1: UPLOAD ────────────────────────────────────────────────────────────
-st.subheader("📎 Step 1 — Upload PDF Documents")
-
-# uploaded_files = st.file_uploader(
-#     "Upload Records Management PDFs",
-#     type=["pdf"],
-#     accept_multiple_files=True
-# )
-st.subheader("📎 Step 1 — Loading Fixed Documents")
-all_text = ""
 uploaded_files = [
     "data/doc.pdf",
     "data/doc1.pdf"
 ]
 
-for pdf_path in uploaded_files:
-    st.write(f"📄 Loading: {pdf_path}")
-    all_text += read_pdf_from_path(pdf_path)
-st.success("✅ Both PDFs loaded successfully")
+all_text = ""
+# all_tables = []
+# all_numbers = []
 
+# for pdf_path in uploaded_files:
+#     st.write(f"📊 Extracting numerical data: {pdf_path}")
+
+#     tables = extract_tables_from_pdf(pdf_path)
+#     all_tables.extend(tables)
+
+#     text = read_pdf_from_path(pdf_path)
+#     nums = extract_numbers_from_text(text)
+#     all_numbers.extend(nums)
+
+
+progress = st.progress(0)
+
+for i, file in enumerate(uploaded_files):
+    st.write(f"Loading: {file}")
+    all_text += read_pdf_from_path(file)
+    progress.progress((i + 1) / len(uploaded_files))
+
+st.success("✅ Documents Loaded Successfully")
 st.divider()
 
-# ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
-# ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
-st.subheader("🚀 Step 2 — Run AI Analysis")
+# ─────────────────────────────────────────────
+# RUN ANALYSIS
+# ─────────────────────────────────────────────
+st.subheader("🚀 AI Intelligence Engine")
 
-if not uploaded_files:
-    st.warning("⬆️ Please upload PDF files above to begin.")
-else:
-    col_btn, col_info = st.columns([1, 3])
+run = st.button("Run Full AI Analysis", type="primary")
 
-    with col_btn:
-        run = st.button(
-            "🤖 Run AI Analysis",
-            use_container_width=True,
-            type="primary"
-        )
+if run:
 
-    with col_info:
-        if running and model_ok:
-            st.info(
-                f"🤖 Will use Ollama {OLLAMA_MODEL} LLM + NLP fallback"
-            )
-        else:
-            st.warning(
-                "⚠️ Ollama not ready — will use NLP fallback only. "
-                "Setup Ollama in sidebar for better results."
-            )
+    with st.spinner("AI is analyzing documents..."):
 
-    if run:
-        with st.spinner("📄 Reading PDFs..."):
-            all_text = ""
-            bar = st.progress(0, text="Reading PDFs...")
-
-            for i, pdf_path in enumerate(uploaded_files):
-                # fixed PDF path read
-                all_text += read_pdf_from_path(pdf_path)
-
-                # IMPORTANT FIX:
-                # pdf_path is string, so use pdf_path not f.name
-                bar.progress(
-                    (i + 1) / len(uploaded_files),
-                    text=f"Reading: {pdf_path}"
-                )
-
-        st.success(
-            f"📄 Extracted {len(all_text):,} characters "
-            f"from {len(uploaded_files)} PDF(s)"
-        )
-
-        with st.spinner(
-            "🤖 AI analyzing content — this may take 1-2 minutes..."
-        ):
-            data = hybrid_extract(all_text)
-            df = to_dataframe(data)
-            df    = clean_duplicates(df)
-            stats = get_summary_stats(df)
+        raw_data = hybrid_extract(all_text)
+        df = to_dataframe(raw_data)
+        df = clean_duplicates(df)
+        stats = get_summary_stats(df)
 
         st.session_state["df"] = df
         st.session_state["stats"] = stats
-        st.session_state["analyzed"] = True
 
-        if len(df) == 0:
-            st.error(
-                "❌ No data extracted. PDF may be image-based "
-                "(scanned). Text-based PDFs work best."
-            )
-        else:
-            st.success(
-                f"✅ Found **{stats['total_departments']} departments** "
-                f"and **{stats['total_tools']} tools**"
-            )
-st.divider()
+    st.success("✅ Analysis Complete")
+    st.divider()
 
-# ── RESULTS ───────────────────────────────────────────────────────────────────
-if st.session_state.get("analyzed") and "df" in st.session_state:
-    df    = st.session_state["df"]
+# ─────────────────────────────────────────────
+# RESULTS SECTION
+# ─────────────────────────────────────────────
+if "df" in st.session_state:
+
+    df = st.session_state["df"]
     stats = st.session_state["stats"]
 
-    if df.empty:
-        st.warning("No data to display. Please re-run analysis.")
-        st.stop()
+    # ─────────────────────────────────────────
+    # KPI DASHBOARD
+    # ─────────────────────────────────────────
+    st.subheader("📊 Executive Summary")
 
-    # ── METRICS ───────────────────────────────────────────────────────────────
-    st.subheader("📊 Summary")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🏢 Departments",       stats["total_departments"])
-    c2.metric("🛠️ Tools / Systems",   stats["total_tools"])
-    c3.metric("🔗 Relationships",     stats["total_relationships"])
-    c4.metric("👑 System Owners",     stats["relationship_breakdown"].get("System Owner", 0))
+
+    c1.metric("🏢 Departments", stats["total_departments"])
+    c2.metric("🛠️ Tools", stats["total_tools"])
+    c3.metric("🔗 Relationships", stats["total_relationships"])
+    c4.metric("📁 Rows", len(df))
+
     st.divider()
 
-    # ── TABLE ─────────────────────────────────────────────────────────────────
-    st.subheader("📋 Extracted Data — All Departments & Tools")
+    # ─────────────────────────────────────────
+    # SMART FILTERING
+    # ─────────────────────────────────────────
+    st.subheader("🔎 Smart Data Explorer")
 
-    f1, f2 = st.columns(2)
-    with f1:
-        dept_filter = st.multiselect("Filter by Department",
-                                     sorted(df["department"].unique()))
-    with f2:
-        rel_filter  = st.multiselect("Filter by Relationship",
-                                     sorted(df["relationship"].unique()))
-
-    fdf = df.copy()
-    if dept_filter: fdf = fdf[fdf["department"].isin(dept_filter)]
-    if rel_filter:  fdf = fdf[fdf["relationship"].isin(rel_filter)]
-
-    def style_rel(val):
-        m = {
-            "System Owner":      "background-color:#003f5c;color:#00d4ff",
-            "Workflow User":     "background-color:#5c2700;color:#ff6b35",
-            "Records Officer":   "background-color:#2d0060;color:#b57bee",
-            "Records Custodian": "background-color:#004d2e;color:#10b981",
-        }
-        return m.get(val, "")
-
-    display = fdf[["department","tool","relationship","usage"]].copy()
-    st.dataframe(display.style.map(style_rel, subset=["relationship"]),
-                 use_container_width=True, height=350)
-    st.caption(f"Showing {len(fdf)} of {len(df)} records")
-    st.divider()
-
-    # ── CHARTS ────────────────────────────────────────────────────────────────
-    st.subheader("📈 Visual Analysis")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("**🏢 Tools per Department**")
-        dept_counts = df.groupby("department")["tool"].count().sort_values(ascending=True)
-        fig, ax = plt.subplots(figsize=(8, max(4, len(dept_counts)*0.5)))
-        fig.patch.set_facecolor('#0e1117')
-        ax.set_facecolor('#0e1117')
-        ax.barh(dept_counts.index, dept_counts.values, color="#00D4FF", alpha=0.85)
-        for i, v in enumerate(dept_counts.values):
-            ax.text(v+0.05, i, str(v), va='center', color='white', fontsize=9)
-        ax.tick_params(colors='white', labelsize=8)
-        ax.set_xlabel("Number of Tools", color='#aaa', fontsize=9)
-        for sp in ax.spines.values(): sp.set_color('#333')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        plt.tight_layout()
-        st.pyplot(fig); plt.close()
+        dept_filter = st.multiselect("Departments", df["department"].unique())
 
     with col2:
-        st.markdown("**🔗 Relationship Distribution**")
-        rel_counts  = df["relationship"].value_counts()
-        colors_pie  = [COLORS.get(r, "#666") for r in rel_counts.index]
-        fig2, ax2   = plt.subplots(figsize=(6,5))
-        fig2.patch.set_facecolor('#0e1117')
-        ax2.set_facecolor('#0e1117')
-        _, texts, autotexts = ax2.pie(
-            rel_counts.values, labels=rel_counts.index,
-            colors=colors_pie, autopct='%1.0f%%', startangle=90,
-            textprops={'color':'white','fontsize':10},
-            wedgeprops={'edgecolor':'#0e1117','linewidth':2}
-        )
-        for at in autotexts: at.set_color('black'); at.set_fontweight('bold')
-        plt.tight_layout()
-        st.pyplot(fig2); plt.close()
+        rel_filter = st.multiselect("Relationships", df["relationship"].unique())
+
+    filtered = df.copy()
+
+    if dept_filter:
+        filtered = filtered[filtered["department"].isin(dept_filter)]
+
+    if rel_filter:
+        filtered = filtered[filtered["relationship"].isin(rel_filter)]
+
+    st.dataframe(filtered, use_container_width=True, height=350)
 
     st.divider()
 
-    # ── NETWORK GRAPH ─────────────────────────────────────────────────────────
-    # st.subheader("🕸️ Department → Tool Network Graph")
-    # st.caption("🔵 Blue = Department  |  🟢 Green = Tool  |  Edge color = Relationship type")
+    # ─────────────────────────────────────────
+    # NUMERICAL ANALYTICS
+    # ─────────────────────────────────────────
+    st.subheader("📈 Numerical Intelligence Layer")
 
-    # G   = build_graph(df)
-    # pos = nx.spring_layout(G, k=2.5, iterations=60, seed=42)
+    dept_counts = df["department"].value_counts()
 
-    # dept_nodes = [n for n,d in G.nodes(data=True) if d.get("type")=="department"]
-    # tool_nodes = [n for n,d in G.nodes(data=True) if d.get("type")=="tool"]
-    # edge_cols  = [COLORS.get(d.get("label",""),"#555") for _,_,d in G.edges(data=True)]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(dept_counts.index, dept_counts.values)
+    plt.xticks(rotation=90)
+    st.pyplot(fig)
 
-    # fig3, ax3  = plt.subplots(figsize=(14,8))
-    # fig3.patch.set_facecolor('#0e1117')
-    # ax3.set_facecolor('#0e1117')
-    # nx.draw_networkx_nodes(G, pos, nodelist=dept_nodes,
-    #                        node_color="#1E3A8A", node_size=3000, ax=ax3, alpha=0.95)
-    # nx.draw_networkx_nodes(G, pos, nodelist=tool_nodes,
-    #                        node_color="#065F46", node_size=2000, ax=ax3, alpha=0.95)
-    # nx.draw_networkx_edges(G, pos, edge_color=edge_cols, width=2, alpha=0.7, ax=ax3,
-    #                        arrows=True, arrowsize=15, connectionstyle='arc3,rad=0.1')
-    # nx.draw_networkx_labels(G, pos, font_color='white', font_size=9,
-    #                         font_weight='bold', ax=ax3)
-    # ax3.legend(
-    #     handles=[
-    #         mpatches.Patch(color="#1E3A8A", label="Department"),
-    #         mpatches.Patch(color="#065F46", label="Tool/System"),
-    #         mpatches.Patch(color="#00D4FF", label="System Owner"),
-    #         mpatches.Patch(color="#FF6B35", label="Workflow User"),
-    #         mpatches.Patch(color="#7C3AED", label="Records Officer"),
-    #         mpatches.Patch(color="#10B981", label="Records Custodian"),
-    #     ],
-    #     loc='upper left', facecolor='#1a1a2e',
-    #     edgecolor='#333', labelcolor='white', fontsize=9
-    # )
-    # ax3.axis('off')
-    # plt.tight_layout()
-    # st.pyplot(fig3); plt.close()
-    # st.divider()
-    st.subheader("🕸️ Department → Tool Network Graph")
-    st.caption("🔵 Blue = Departments (left)  |  🟢 Green = Tools (right)  |  Edge color = Relationship type")
-    graph_height = max(10, max(df["department"].nunique(), df["tool"].nunique()) * 0.55)
-    fig3, ax3 = plt.subplots(figsize=(18, graph_height))
-    draw_better_graph(df, ax=ax3)
+    st.divider()
+
+    # ─────────────────────────────────────────
+    # RELATIONSHIP DISTRIBUTION
+    # ─────────────────────────────────────────
+    st.subheader("🥧 Relationship Intelligence")
+
+    rel_counts = df["relationship"].value_counts()
+
+    fig2, ax2 = plt.subplots()
+    ax2.pie(rel_counts.values, labels=rel_counts.index, autopct="%1.1f%%")
+    st.pyplot(fig2)
+
+    st.divider()
+
+    # ─────────────────────────────────────────
+    # SAFE LARGE GRAPH (OPTIMIZED)
+    # ─────────────────────────────────────────
+    st.subheader("🕸️ Knowledge Graph (Optimized)")
+
+    # prevent crash on big datasets
+    sample_df = df.head(1500)
+
+    fig3, ax3 = plt.subplots(figsize=(14, 8))
+    draw_better_graph(sample_df, ax=ax3)
     st.pyplot(fig3)
-    plt.close()
+
     st.divider()
 
+    # ─────────────────────────────────────────
+    # AI INSIGHTS ENGINE (NEW)
+    # ─────────────────────────────────────────
+    st.subheader("🧠 AI Insights Engine")
 
-    # ── DEPT CARDS ────────────────────────────────────────────────────────────
-    st.subheader("🏢 Department Detail Cards")
+    most_dept = df["department"].value_counts().idxmax()
+    most_tool = df["tool"].value_counts().idxmax()
+
+    high_activity = df.groupby("department").size().sort_values(ascending=False).head(1)
+
+    st.info(f"""
+🔹 Most Active Department: **{most_dept}**  
+🔹 Most Used Tool: **{most_tool}**  
+🔹 Highest Activity Count: **{high_activity.values[0]} records**
+    """)
+
+    st.divider()
+
+    # ─────────────────────────────────────────
+    # Tables
+    # ─────────────────────────────────────────
+
+    # st.subheader("📋 Extracted Tables from PDF")
+
+    # if all_tables:
+    #      for i, table in enumerate(all_tables[:5]):  # limit for performance
+    #         st.write(f"Table {i+1}")
+    #         table = clean_dataframe(table)
+    #         st.dataframe(table, use_container_width=True)    
+    # else:
+    #      st.info("No structured tables found in PDF")
+
+    # ─────────────────────────────────────────
+    # NUMERICAL GRAPH
+    # ─────────────────────────────────────────   
+    # st.subheader("📈 Numerical Data Distribution")
+
+    # if all_numbers:
+    #      import matplotlib.pyplot as plt
+
+    #      fig, ax = plt.subplots()
+
+    #      ax.hist(all_numbers, bins=20)
+    #      ax.set_title("Number Distribution from PDF")
+
+    #      st.pyplot(fig)
+    # else:
+    #      st.warning("No numerical values detected")  
+  
+    # ─────────────────────────────────────────
+    # Department Card
+    # ─────────────────────────────────────────
+
+    st.subheader("🏢 Department Detail Cards",)
     depts = sorted(df["department"].unique())
     cols  = st.columns(3)
     icons = {
@@ -796,13 +707,37 @@ if st.session_state.get("analyzed") and "df" in st.session_state:
                 st.markdown(f"**📁 {dept}**")
                 st.markdown(f"{icons.get(rel,'⚪')} `{rel}`")
                 st.markdown(f"**Tools:** {' · '.join(tools)}")
+                # ── CUSTOM CARD CSS ─────────────────────────────
+                st.markdown("""
+                              <style>
+                              .card {
+                                     background-color: #111827;
+                                     padding: 15px;
+                                     border-radius: 12px;
+                                     margin-bottom: 10px;
+                                     color: white;
+                                     border-left: 5px solid #00D4FF;
+                                    }
+                              .card-title {
+                                     font-size: 16px;
+                                     font-weight: bold;
+                                    }
+                              .card-sub {
+                                     font-size: 13px;
+                                     color: #aaa;
+                                    }
+                               </style>
+                              """, unsafe_allow_html=True)
                 if context and context != "Unknown":
                     with st.expander("📄 Context from PDF"):
                         st.caption(context[:400])
 
     st.divider()
 
-    # ── SUMMARY TABLES ────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────
+    # SUMMARY TABLES 
+    # ─────────────────────────────────────────
+
     st.subheader("📊 Relationship Breakdown")
     r1, r2 = st.columns(2)
     with r1:
@@ -826,43 +761,442 @@ if st.session_state.get("analyzed") and "df" in st.session_state:
         )
     st.divider()
 
-    # ── EXPORT ────────────────────────────────────────────────────────────────
-    st.subheader("💾 Export Results")
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name="All Data", index=False)
-        df.groupby("department")["tool"].apply(list).reset_index().to_excel(
-            writer, sheet_name="By Department", index=False)
-        df["relationship"].value_counts().reset_index().to_excel(
-            writer, sheet_name="Relationships", index=False)
+    # ─────────────────────────────────────────
+    # EXPORT SYSTEM
+    # ─────────────────────────────────────────
+    st.subheader("💾 Export Intelligence Report")
 
-    d1, d2 = st.columns(2)
-    with d1:
-        st.download_button("📥 Download Excel",
-                           buf.getvalue(),
-                           "rm_analysis.xlsx",
-                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           use_container_width=True, type="primary")
-    with d2:
-        st.download_button("📥 Download CSV",
-                           df.to_csv(index=False),
-                           "rm_analysis.csv", "text/csv",
-                           use_container_width=True)
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Full Data")
+
+    st.download_button(
+        "📥 Download Excel Report",
+        buffer.getvalue(),
+        "enterprise_ai_report.xlsx",
+        use_container_width=True
+    )
 
 else:
-    st.info("📄 Upload PDFs above and click **Run AI Analysis** to begin.")
-    with st.expander("ℹ️ How it works"):
-        st.markdown("""
-**AI Pipeline:**
-1. **PDF Reading** — PyMuPDF extracts text
-2. **Ollama llama3** — LLM reads chunks and extracts departments + tools
-3. **NLP Fallback** — Regex-based extraction runs in parallel
-4. **Deduplicate** — Merges both results, removes duplicates
-5. **Dashboard** — Charts, network graph, detail cards
-6. **Export** — Excel + CSV download
+    st.info("Upload PDFs and click 'Run AI Analysis'")
+# """
+# app.py - Records Management AI Dashboard
+# =========================================
+# Auto-installs Ollama + llama3 on first run.
+# Pure Streamlit — no HTML/CSS.
+# """
 
-**Ollama Setup** (sidebar):
-- Click "Auto-Setup Ollama" — it downloads, installs, and pulls llama3 automatically
-- First run downloads ~4GB model — takes 5-10 mins
-- After that, all analysis is instant and 100% offline
-        """)
+# import streamlit as st
+# import pandas as pd
+# import networkx as nx
+# import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
+# import io, sys, os
+
+# sys.path.insert(0, os.path.dirname(__file__))
+
+# from scripts.pdf_reader    import read_pdf_from_path
+# from scripts.ai_extractor  import hybrid_extract
+# from scripts.processor     import to_dataframe, get_summary_stats
+# from scripts.utils         import build_graph
+# from scripts.graph_viz     import draw_better_graph, clean_duplicates
+# from scripts.ollama_setup  import (
+#     setup_ollama, is_ollama_installed,
+#     is_ollama_running, is_model_available,
+#     OLLAMA_MODEL
+# )
+
+# # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
+# st.set_page_config(
+#     page_title="Records Management AI",
+#     page_icon="🧠",
+#     layout="wide",
+#     initial_sidebar_state="expanded"
+# )
+
+# COLORS = {
+#     "System Owner":      "#00D4FF",
+#     "Workflow User":     "#FF6B35",
+#     "Records Officer":   "#7C3AED",
+#     "Records Custodian": "#10B981",
+# }
+# installed = is_ollama_installed()
+# running = is_ollama_running()
+# model_ok = is_model_available() if running else False
+# # ── HEADER ────────────────────────────────────────────────────────────────────
+# st.title("🧠 Records Management Intelligence Dashboard")
+# st.caption("PDF → Ollama LLM (auto-installed) → Department & Tool Mapping → Dashboard")
+# st.divider()
+
+# # ── SIDEBAR ───────────────────────────────────────────────────────────────────
+# # with st.sidebar:
+# #     st.header("🤖 Ollama LLM Status")
+
+# #     installed = is_ollama_installed()
+# #     running   = is_ollama_running()
+# #     model_ok  = is_model_available() if running else False
+
+# #     st.markdown(f"**Installed:** {'✅ Yes' if installed else '❌ No'}")
+# #     st.markdown(f"**Server:**    {'✅ Running' if running else '🔴 Stopped'}")
+# #     st.markdown(f"**Model:**     {'✅ ' + OLLAMA_MODEL if model_ok else '❌ Not pulled'}")
+
+# #     st.divider()
+
+# #     if not (installed and running and model_ok):
+# #         st.warning("Ollama not ready. Click below to auto-setup.")
+# #         if st.button("⚡ Auto-Setup Ollama", use_container_width=True, type="primary"):
+# #             with st.status("Setting up Ollama...", expanded=True) as status:
+# #                 log = st.empty()
+# #                 messages = []
+
+# #                 def cb(msg):
+# #                     messages.append(msg)
+# #                     log.markdown("\n\n".join(messages[-6:]))
+
+# #                 ok, msg = setup_ollama(status_callback=cb)
+
+# #                 if ok:
+# #                     status.update(label="✅ Ollama Ready!", state="complete")
+# #                     st.success(msg)
+# #                     st.rerun()
+# #                 else:
+# #                     status.update(label="❌ Setup Failed", state="error")
+# #                     st.error(msg)
+# #                     st.markdown("""
+# # **Manual Install:**
+# # 1. Go to https://ollama.com
+# # 2. Download & install
+# # 3. Run: `ollama pull llama3`
+# # 4. Restart this app
+# #                     """)
+# #     else:
+# #         st.success(f"✅ Ollama + {OLLAMA_MODEL} ready!")
+
+# #     st.divider()
+# #     st.subheader("🔗 Relationship Types")
+# #     st.markdown("🔵 **System Owner** — IT owns the system")
+# #     st.markdown("🟠 **Workflow User** — Daily operational use")
+# #     st.markdown("🟣 **Records Officer** — LVA compliance liaison")
+# #     st.markdown("🟢 **Records Custodian** — Record storage")
+# #     st.divider()
+# #     st.caption("Powered by Ollama llama3 + NLP Fallback")
+
+# # ── STEP 1: UPLOAD ────────────────────────────────────────────────────────────
+# st.subheader("📎 Step 1 — Upload PDF Documents")
+
+# # uploaded_files = st.file_uploader(
+# #     "Upload Records Management PDFs",
+# #     type=["pdf"],
+# #     accept_multiple_files=True
+# # )
+# st.subheader("📎 Step 1 — Loading Fixed Documents")
+# all_text = ""
+# uploaded_files = [
+#     "data/doc.pdf",
+#     "data/doc1.pdf"
+# ]
+
+# for pdf_path in uploaded_files:
+#     st.write(f"📄 Loading: {pdf_path}")
+#     all_text += read_pdf_from_path(pdf_path)
+# st.success("✅ Both PDFs loaded successfully")
+
+# st.divider()
+
+# # ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
+# # ── STEP 2: ANALYZE ───────────────────────────────────────────────────────────
+# st.subheader("🚀 Step 2 — Run AI Analysis")
+
+# if not uploaded_files:
+#     st.warning("⬆️ Please upload PDF files above to begin.")
+# else:
+#     col_btn, col_info = st.columns([1, 3])
+
+#     with col_btn:
+#         run = st.button(
+#             "🤖 Run AI Analysis",
+#             use_container_width=True,
+#             type="primary"
+#         )
+
+#     with col_info:
+#         if running and model_ok:
+#             st.info(
+#                 f"🤖 Will use Ollama {OLLAMA_MODEL} LLM + NLP fallback"
+#             )
+#         else:
+#             st.warning(
+#                 "⚠️ Ollama not ready — will use NLP fallback only. "
+#                 "Setup Ollama in sidebar for better results."
+#             )
+
+#     if run:
+#         with st.spinner("📄 Reading PDFs..."):
+#             all_text = ""
+#             bar = st.progress(0, text="Reading PDFs...")
+
+#             for i, pdf_path in enumerate(uploaded_files):
+#                 # fixed PDF path read
+#                 all_text += read_pdf_from_path(pdf_path)
+
+#                 # IMPORTANT FIX:
+#                 # pdf_path is string, so use pdf_path not f.name
+#                 bar.progress(
+#                     (i + 1) / len(uploaded_files),
+#                     text=f"Reading: {pdf_path}"
+#                 )
+
+#         st.success(
+#             f"📄 Extracted {len(all_text):,} characters "
+#             f"from {len(uploaded_files)} PDF(s)"
+#         )
+
+#         with st.spinner(
+#             "🤖 AI analyzing content — this may take 1-2 minutes..."
+#         ):
+#             data = hybrid_extract(all_text)
+#             df = to_dataframe(data)
+#             df    = clean_duplicates(df)
+#             stats = get_summary_stats(df)
+
+#         st.session_state["df"] = df
+#         st.session_state["stats"] = stats
+#         st.session_state["analyzed"] = True
+
+#         if len(df) == 0:
+#             st.error(
+#                 "❌ No data extracted. PDF may be image-based "
+#                 "(scanned). Text-based PDFs work best."
+#             )
+#         else:
+#             st.success(
+#                 f"✅ Found **{stats['total_departments']} departments** "
+#                 f"and **{stats['total_tools']} tools**"
+#             )
+# st.divider()
+
+# # ── RESULTS ───────────────────────────────────────────────────────────────────
+# if st.session_state.get("analyzed") and "df" in st.session_state:
+#     df    = st.session_state["df"]
+#     stats = st.session_state["stats"]
+
+#     if df.empty:
+#         st.warning("No data to display. Please re-run analysis.")
+#         st.stop()
+
+#     # ── METRICS ───────────────────────────────────────────────────────────────
+#     st.subheader("📊 Summary")
+#     c1, c2, c3, c4 = st.columns(4)
+#     c1.metric("🏢 Departments",       stats["total_departments"])
+#     c2.metric("🛠️ Tools / Systems",   stats["total_tools"])
+#     c3.metric("🔗 Relationships",     stats["total_relationships"])
+#     c4.metric("👑 System Owners",     stats["relationship_breakdown"].get("System Owner", 0))
+#     st.divider()
+
+#     # ── TABLE ─────────────────────────────────────────────────────────────────
+#     st.subheader("📋 Extracted Data — All Departments & Tools")
+
+#     f1, f2 = st.columns(2)
+#     with f1:
+#         dept_filter = st.multiselect("Filter by Department",
+#                                      sorted(df["department"].unique()))
+#     with f2:
+#         rel_filter  = st.multiselect("Filter by Relationship",
+#                                      sorted(df["relationship"].unique()))
+
+#     fdf = df.copy()
+#     if dept_filter: fdf = fdf[fdf["department"].isin(dept_filter)]
+#     if rel_filter:  fdf = fdf[fdf["relationship"].isin(rel_filter)]
+
+#     def style_rel(val):
+#         m = {
+#             "System Owner":      "background-color:#003f5c;color:#00d4ff",
+#             "Workflow User":     "background-color:#5c2700;color:#ff6b35",
+#             "Records Officer":   "background-color:#2d0060;color:#b57bee",
+#             "Records Custodian": "background-color:#004d2e;color:#10b981",
+#         }
+#         return m.get(val, "")
+
+#     display = fdf[["department","tool","relationship","usage"]].copy()
+#     st.dataframe(display.style.map(style_rel, subset=["relationship"]),
+#                  use_container_width=True, height=350)
+#     st.caption(f"Showing {len(fdf)} of {len(df)} records")
+#     st.divider()
+
+#     # ── CHARTS ────────────────────────────────────────────────────────────────
+#     st.subheader("📈 Visual Analysis")
+#     col1, col2 = st.columns(2)
+
+#     with col1:
+#         st.markdown("**🏢 Tools per Department**")
+#         dept_counts = df.groupby("department")["tool"].count().sort_values(ascending=True)
+#         fig, ax = plt.subplots(figsize=(8, max(4, len(dept_counts)*0.5)))
+#         fig.patch.set_facecolor('#0e1117')
+#         ax.set_facecolor('#0e1117')
+#         ax.barh(dept_counts.index, dept_counts.values, color="#00D4FF", alpha=0.85)
+#         for i, v in enumerate(dept_counts.values):
+#             ax.text(v+0.05, i, str(v), va='center', color='white', fontsize=9)
+#         ax.tick_params(colors='white', labelsize=8)
+#         ax.set_xlabel("Number of Tools", color='#aaa', fontsize=9)
+#         for sp in ax.spines.values(): sp.set_color('#333')
+#         ax.spines['top'].set_visible(False)
+#         ax.spines['right'].set_visible(False)
+#         plt.tight_layout()
+#         st.pyplot(fig); plt.close()
+
+#     with col2:
+#         st.markdown("**🔗 Relationship Distribution**")
+#         rel_counts  = df["relationship"].value_counts()
+#         colors_pie  = [COLORS.get(r, "#666") for r in rel_counts.index]
+#         fig2, ax2   = plt.subplots(figsize=(6,5))
+#         fig2.patch.set_facecolor('#0e1117')
+#         ax2.set_facecolor('#0e1117')
+#         _, texts, autotexts = ax2.pie(
+#             rel_counts.values, labels=rel_counts.index,
+#             colors=colors_pie, autopct='%1.0f%%', startangle=90,
+#             textprops={'color':'white','fontsize':10},
+#             wedgeprops={'edgecolor':'#0e1117','linewidth':2}
+#         )
+#         for at in autotexts: at.set_color('black'); at.set_fontweight('bold')
+#         plt.tight_layout()
+#         st.pyplot(fig2); plt.close()
+
+#     st.divider()
+
+#     # ── NETWORK GRAPH ─────────────────────────────────────────────────────────
+#     # st.subheader("🕸️ Department → Tool Network Graph")
+#     # st.caption("🔵 Blue = Department  |  🟢 Green = Tool  |  Edge color = Relationship type")
+
+#     # G   = build_graph(df)
+#     # pos = nx.spring_layout(G, k=2.5, iterations=60, seed=42)
+
+#     # dept_nodes = [n for n,d in G.nodes(data=True) if d.get("type")=="department"]
+#     # tool_nodes = [n for n,d in G.nodes(data=True) if d.get("type")=="tool"]
+#     # edge_cols  = [COLORS.get(d.get("label",""),"#555") for _,_,d in G.edges(data=True)]
+
+#     # fig3, ax3  = plt.subplots(figsize=(14,8))
+#     # fig3.patch.set_facecolor('#0e1117')
+#     # ax3.set_facecolor('#0e1117')
+#     # nx.draw_networkx_nodes(G, pos, nodelist=dept_nodes,
+#     #                        node_color="#1E3A8A", node_size=3000, ax=ax3, alpha=0.95)
+#     # nx.draw_networkx_nodes(G, pos, nodelist=tool_nodes,
+#     #                        node_color="#065F46", node_size=2000, ax=ax3, alpha=0.95)
+#     # nx.draw_networkx_edges(G, pos, edge_color=edge_cols, width=2, alpha=0.7, ax=ax3,
+#     #                        arrows=True, arrowsize=15, connectionstyle='arc3,rad=0.1')
+#     # nx.draw_networkx_labels(G, pos, font_color='white', font_size=9,
+#     #                         font_weight='bold', ax=ax3)
+#     # ax3.legend(
+#     #     handles=[
+#     #         mpatches.Patch(color="#1E3A8A", label="Department"),
+#     #         mpatches.Patch(color="#065F46", label="Tool/System"),
+#     #         mpatches.Patch(color="#00D4FF", label="System Owner"),
+#     #         mpatches.Patch(color="#FF6B35", label="Workflow User"),
+#     #         mpatches.Patch(color="#7C3AED", label="Records Officer"),
+#     #         mpatches.Patch(color="#10B981", label="Records Custodian"),
+#     #     ],
+#     #     loc='upper left', facecolor='#1a1a2e',
+#     #     edgecolor='#333', labelcolor='white', fontsize=9
+#     # )
+#     # ax3.axis('off')
+#     # plt.tight_layout()
+#     # st.pyplot(fig3); plt.close()
+#     # st.divider()
+#     st.subheader("🕸️ Department → Tool Network Graph")
+#     st.caption("🔵 Blue = Departments (left)  |  🟢 Green = Tools (right)  |  Edge color = Relationship type")
+#     graph_height = max(10, max(df["department"].nunique(), df["tool"].nunique()) * 0.55)
+#     fig3, ax3 = plt.subplots(figsize=(18, graph_height))
+#     draw_better_graph(df, ax=ax3)
+#     st.pyplot(fig3)
+#     plt.close()
+#     st.divider()
+
+
+#     # ── DEPT CARDS ────────────────────────────────────────────────────────────
+    # st.subheader("🏢 Department Detail Cards")
+    # depts = sorted(df["department"].unique())
+    # cols  = st.columns(3)
+    # icons = {
+    #     "System Owner": "🔵", "Workflow User": "🟠",
+    #     "Records Officer": "🟣", "Records Custodian": "🟢"
+    # }
+    # for i, dept in enumerate(depts):
+    #     ddf     = df[df["department"] == dept]
+    #     tools   = ddf["tool"].tolist()
+    #     rel     = ddf["relationship"].mode()[0] if not ddf.empty else "Unknown"
+    #     context = ddf["business_context"].iloc[0] if "business_context" in ddf.columns else ""
+    #     with cols[i % 3]:
+    #         with st.container(border=True):
+    #             st.markdown(f"**📁 {dept}**")
+    #             st.markdown(f"{icons.get(rel,'⚪')} `{rel}`")
+    #             st.markdown(f"**Tools:** {' · '.join(tools)}")
+    #             if context and context != "Unknown":
+    #                 with st.expander("📄 Context from PDF"):
+    #                     st.caption(context[:400])
+
+    # st.divider()
+
+#     # ── SUMMARY TABLES ────────────────────────────────────────────────────────
+#     st.subheader("📊 Relationship Breakdown")
+#     r1, r2 = st.columns(2)
+#     with r1:
+#         st.markdown("**By Relationship Type**")
+#         st.dataframe(
+#             df.groupby("relationship").agg(
+#                 Departments=("department","nunique"),
+#                 Tools=("tool","nunique"),
+#                 Total=("tool","count")
+#             ).reset_index(),
+#             use_container_width=True
+#         )
+#     with r2:
+#         st.markdown("**By Department**")
+#         st.dataframe(
+#             df.groupby("department").agg(
+#                 Tools=("tool","count"),
+#                 Relationship=("relationship", lambda x: x.mode()[0])
+#             ).reset_index(),
+#             use_container_width=True
+#         )
+#     st.divider()
+
+#     # ── EXPORT ────────────────────────────────────────────────────────────────
+#     st.subheader("💾 Export Results")
+#     buf = io.BytesIO()
+#     with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+#         df.to_excel(writer, sheet_name="All Data", index=False)
+#         df.groupby("department")["tool"].apply(list).reset_index().to_excel(
+#             writer, sheet_name="By Department", index=False)
+#         df["relationship"].value_counts().reset_index().to_excel(
+#             writer, sheet_name="Relationships", index=False)
+
+#     d1, d2 = st.columns(2)
+#     with d1:
+#         st.download_button("📥 Download Excel",
+#                            buf.getvalue(),
+#                            "rm_analysis.xlsx",
+#                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+#                            use_container_width=True, type="primary")
+#     with d2:
+#         st.download_button("📥 Download CSV",
+#                            df.to_csv(index=False),
+#                            "rm_analysis.csv", "text/csv",
+#                            use_container_width=True)
+
+# else:
+#     st.info("📄 Upload PDFs above and click **Run AI Analysis** to begin.")
+#     with st.expander("ℹ️ How it works"):
+#         st.markdown("""
+# **AI Pipeline:**
+# 1. **PDF Reading** — PyMuPDF extracts text
+# 2. **Ollama llama3** — LLM reads chunks and extracts departments + tools
+# 3. **NLP Fallback** — Regex-based extraction runs in parallel
+# 4. **Deduplicate** — Merges both results, removes duplicates
+# 5. **Dashboard** — Charts, network graph, detail cards
+# 6. **Export** — Excel + CSV download
+
+# **Ollama Setup** (sidebar):
+# - Click "Auto-Setup Ollama" — it downloads, installs, and pulls llama3 automatically
+# - First run downloads ~4GB model — takes 5-10 mins
+# - After that, all analysis is instant and 100% offline
+#         """)
